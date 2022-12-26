@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchPictures, imagesOfPages } from 'services/picturesApi';
 import { picturesMapper } from 'utils/mapper';
 import { Loader } from './Loader/Loader';
@@ -10,134 +10,87 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { toast } from 'react-toastify';
 
-export class App extends Component {
-  state = {
-    query: '',
-    images: [],
-    page: 1,
-    totalNumberOfPages: 0,
-    isLoading: false,
-    error: null,
-    currentImage: null,
-    modalShown: false,
-    searchDone: false,
-  };
+export const App = () => {
+  const [query, setQuery] = useState('');
 
-  componentDidUpdate(_, prevState) {
-    const { page, totalNumberOfPages, searchDone } = this.state;
-    if (searchDone !== prevState.searchDone || page !== prevState.page) {
-      this.getPictures();
-      
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalNumberOfPages, setTotalNumberOfPages] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  // const [error, setError] = useState(null);
+  const [currentImage, setCurrentImage] = useState(null);
+  const [modalShown, setModalShown] = useState(false);
+  // const [searchDone, setSearchDone] = useState(false);
+
+  useEffect(() => {
+    const getPictures = async () => {
+      setIsLoading(true);
+
+      const arrayOfImages = await fetchPictures(page, query);
+      const filteredArray = picturesMapper(arrayOfImages);
+      if (filteredArray.length === 0) {
+        setIsLoading(false);
+        return toast.error('Oops! Something went wrong!');
+      }
+
+      setTotalNumberOfPages(imagesOfPages);
+      setModalShown(false);
+      setImages(prevImages => [...prevImages, ...filteredArray]);
+      setIsLoading(false);
+    };
+
+    if (query) {
+      getPictures();
     }
-    //  if (!isShown && isShown !== prevState.isShown) {
-    //    this.setState({ totalNumberOfPages: 1 })
-    // }
+  }, [query, page]);
 
-    if (page === totalNumberOfPages) {
-      this.setState({ totalNumberOfPages: 0 });
-    }
-  }
+  // const handleInputChange(newQuery) {
+  //   const searchQuery = newQuery.trim();
+  //   setQuery(searchQuery);
+  // }
 
-  // getPictures = () => {
-  //   const { page, searchWord } = this.state;
-  //   this.setState({ isLoading: true });
-
-  //   fetchPictures(page, searchWord)
-  //     .then(({ data: { totalHits } }) => {
-  //       this.setState(prevState => ({
-  //         images: [...prevState.images, ...picturesMapper(totalHits)],
-  //         error: '',
-  //       }));
-  //     })
-  //     .catch(error => {
-  //       this.setState({ error: error.message, isShown: false });
-  //     })
-  //     .finally(() => this.setState({ isLoading: false }));
-  // };
-
-  getPictures = async () => {
-    const {query, page} = this.state;
-    this.setState({ isLoading: true });
-
-    const arrayOfImages = await fetchPictures(page, query)
-    const filteredArray = picturesMapper(arrayOfImages);
-    if (filteredArray.length === 0) {
-      this.setState({ isLoading: false })
-      return toast.error('Oops! Something went wrong!')
-    }
-
-    this.setState({ totalNumberOfPages: imagesOfPages });
-
-    this.setState(prevState => ({
-      images: [...prevState.images, ...filteredArray],
-      error: '',
-    }));
-    this.setState({ isLoading: false });
-
-
-      
+  const showPictures = query => {
+    setImages([]);
+    setQuery(query);
+    setPage(1);
   };
 
-  handleInputChange(newQuery) {
-    const searchQuery = newQuery.trim();
-    this.setState({ query: searchQuery });
-  }
-
-  showPictures = query => {
-    this.setState(prevState => ({
-      searchDone: !prevState.searchDone,
-      images: [],
-      searchWord: prevState.query,
-      query,
-      page: 1,
-    }));
+  const openModal = data => {
+    setModalShown(true);
+    setCurrentImage(data);
   };
 
-  openModal = data => {
-    this.setState({ currentImage: data, modalShown: true });
+  const closeModal = () => {
+    setCurrentImage(null);
   };
 
-  closeModal = () => {
-    this.setState({ currentImage: null });
+  const loadMore = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  loadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
-  };
-
-  
-
-  render() {
-    const { images, query, isLoading, page, totalNumberOfPages, currentImage } =
-      this.state;
-    return (
-      <>
-        <SearchBar showPictures={this.showPictures} query={query} handleInputChange = {this.handleInputChange} />
-        {images.length > 0 && (<ImageGallery
-          images={images}
-          openModal={this.openModal}
-          query={query}
-        />
-        )}
-        {isLoading && <Loader/>}
-        {/* {currentImage && (
+  return (
+    <>
+      <SearchBar showPictures={showPictures} />
+      {images.length > 0 && (
+        <ImageGallery images={images} openModal={openModal} query={query} />
+      )}
+      {isLoading && <Loader />}
+      {/* {currentImage && (
           <Modal image={currentImage} closeModal={this.closeModal} />
         )} */}
-        {/* {!isLoading && !error && (<Button text='Load more' clickHandler={this.loadMore} />)} */}
-        {images.length > 0 && !isLoading && page < totalNumberOfPages && (
-          <Button text="Load more" loadMore={this.loadMore} />
-        )}
-        
-        {currentImage && (
-          <Modal
-            query={query}
-            largeImageUrl={currentImage}
-            closeModal={this.closeModal}
-          />)}
-        <ToastContainer autoClose={2000} />
-      </>
-    );
-  }
-}
+      {/* {!isLoading && !error && (<Button text='Load more' clickHandler={this.loadMore} />)} */}
+      {images.length > 0 && !isLoading && page < totalNumberOfPages && (
+        <Button text="Load more" loadMore={loadMore} />
+      )}
+
+      {currentImage && (
+        <Modal
+          query={query}
+          largeImageUrl={currentImage}
+          closeModal={closeModal}
+        />
+      )}
+      <ToastContainer autoClose={2000} />
+    </>
+  );
+};
